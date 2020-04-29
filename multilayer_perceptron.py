@@ -9,18 +9,27 @@ import pandas as pd
 import numpy as np
 import seaborn as sns;
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
 
 def preprocessing_data(df):
     X = df.iloc[:, 2:]
     X = np.array(X)
     X = (X - np.min(X)) / (np.max(X) - np.min(X))
     X = X.T
-    X_train, X_test = X[:,:450], X[:,450:]
+    # X_train, X_test = X[:,:450], X[:,450:]
     Y = df.iloc[:, 1]
     Y = np.array(Y)
     Y = np.where(Y == 'B', 0, 1)
-    Y = Y.reshape((1, len(Y)))
-    Y_train, Y_test = Y[:,:450], Y[:,450:]
+    
+    # Y = Y.reshape((1, len(Y)))
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=1)
+    # Y_train, Y_test = Y[:,:450], Y[:,450:]
+    
+    enc = OneHotEncoder(sparse=False, categories='auto')
+    Y_train = enc.fit_transform(Y_train.reshape(len(y_train), -1))
+    Y_test = enc.transform(Y_test.reshape(len(y_test), -1))
+    
     return X_train, X_test, Y_train, Y_test
 
 
@@ -37,9 +46,8 @@ def initialize_parameters(layer_dims):
 def relu(Z):
     return np.maximum(Z, 0)
 
-def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return np.log(e_x / e_x.sum())
+def softmax(Z):
+    return (np.exp(Z) / np.sum(np.exp(Z), axis=0, keepdims=True))
 
 def sigmoid(Z):
     return 1 / (1 + np.exp(-Z))
@@ -49,6 +57,7 @@ def linear_activation_forward(A_prev, W, b, activation):
     
     if activation == "softmax":
         A = softmax(Z)
+        print(A.shape)
     elif activation == "sigmoid":
         A = sigmoid(Z)
         
@@ -67,9 +76,8 @@ def L_model_forward(X, parameters):
         A_prev = A
         A, cache = linear_activation_forward(A_prev, parameters['W' + str(l)], parameters['b' + str(l)], "relu")
         caches.append(cache)
-    AL, cache = linear_activation_forward(A, parameters['W' + str(L)], parameters['b' + str(L)], "sigmoid")
+    AL, cache = linear_activation_forward(A, parameters['W' + str(L)], parameters['b' + str(L)], "softmax")
     caches.append(cache)
-    assert(AL.shape == (1,X.shape[1]))
             
     return AL, caches
 
@@ -101,7 +109,7 @@ def linear_backward(dZ, cache):
     
     return dA_prev, dW, db
 
-def linear_activation_backward(dA, cache, activation):
+def linear_activation_backward(dA, AL, Y, cache, activation):
     linear_cache, Z = cache
     
     if activation == "relu":
@@ -113,7 +121,7 @@ def linear_activation_backward(dA, cache, activation):
         dA_prev, dW, db = linear_backward(dZ, linear_cache)
         
     elif activation == "softmax":
-        dZ = softmax_backward(dA, Z)
+        dZ = AL - Y.T
         dA_prev, dW, db = linear_backward(dZ, linear_cache)
     
     return dA_prev, dW, db
@@ -122,16 +130,16 @@ def L_model_backward(AL, Y, caches):
     grads = {}
     L = len(caches)
     m = AL.shape[1]
-    Y = Y.reshape(AL.shape)
+    # Y = Y.reshape(AL.shape)
 
-    dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
+    # dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
 
     current_cache = caches[L-1]
-    grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL, current_cache, activation = "sigmoid")
+    grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL, None, None, current_cache, activation = "softmax")
     
     for l in reversed(range(L-1)):
         current_cache = caches[l]
-        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)], current_cache, 'relu')
+        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)], AL, Y, current_cache, 'relu')
         grads["dA" + str(l)] = dA_prev_temp
         grads["dW" + str(l + 1)] = dW_temp
         grads["db" + str(l + 1)] = db_temp
@@ -148,6 +156,10 @@ def update_parameters(parameters, grads, learning_rate):
 
     return parameters
 
+def cross_entropy(AL,Y):
+    cost = -np.mean(Y * np.log(AL.T + 1e-8))
+    return cost
+
 def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):#lr was 0.009
     costs = []
 
@@ -156,14 +168,14 @@ def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 30
     for i in range(0, num_iterations):
         AL, caches = L_model_forward(X, parameters)
         
-        cost = compute_cost(AL, Y)
+        cost = cross_entropy(AL,Y)
 
         grads = L_model_backward(AL, Y, caches)
 
         parameters = update_parameters(parameters, grads, learning_rate)
-        if print_cost and i % 100 == 0:
-            print ("Cost after iteration %i: %f" %(i, cost))
-        if print_cost and i % 100 == 0:
+        if print_cost:
+            print ("epoch %i/%i - loss: %f - val_loss: ?" %(i, num_iterations, cost))
+        if print_cost:
             costs.append(cost)
             
     plt.plot(np.squeeze(costs))
@@ -177,9 +189,12 @@ def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 30
 if __name__ == '__main__':
     df=pd.read_csv('data.csv', header=None)
     X_train, X_test, Y_train, Y_test = preprocessing_data(df)
-    layers_dims = [X_train.shape[0], 15, 7, 1]
-    parameters = L_layer_model(X_train, Y_train, layers_dims, learning_rate = 0.0075, num_iterations = 30000, print_cost=False)
+    layers_dims = [X_train.shape[0], 15, 7, 2]
+    parameters = L_layer_model(X_train, Y_train, layers_dims, learning_rate = 0.0075, num_iterations = 70, print_cost=False)
     Y_hat, _ = L_model_forward(X_test, parameters)
     Y_hat = np.where(Y_hat < 0.5, 0, 1)
+    
+    Y_hat = Y_hat.T
+    
     accuracy = (Y_hat == Y_test).mean()
     print(accuracy)
