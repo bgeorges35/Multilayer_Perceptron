@@ -15,11 +15,14 @@ def preprocessing_data(df):
     X = np.array(X)
     X = (X - np.min(X)) / (np.max(X) - np.min(X))
     X = X.T
+    X_train, X_test = X[:,:450], X[:,450:]
     Y = df.iloc[:, 1]
     Y = np.array(Y)
     Y = np.where(Y == 'B', 0, 1)
     Y = Y.reshape((1, len(Y)))
-    return X, Y
+    Y_train, Y_test = Y[:,:450], Y[:,450:]
+    return X_train, X_test, Y_train, Y_test
+
 
 def initialize_parameters(layer_dims):
     np.random.seed(3)
@@ -34,15 +37,16 @@ def initialize_parameters(layer_dims):
 def relu(Z):
     return np.maximum(Z, 0)
 
-def softmax(Z):
-    return (np.exp(Z) / np.sum(np.exp(Z), axis=0))
+def softmax(x):
+    e_x = np.exp(x - np.max(x))
+    return np.log(e_x / e_x.sum())
 
 def sigmoid(Z):
     return 1 / (1 + np.exp(-Z))
 
 def linear_activation_forward(A_prev, W, b, activation):    
-    
     Z = np.dot(W, A_prev) + b
+    
     if activation == "softmax":
         A = softmax(Z)
     elif activation == "sigmoid":
@@ -50,6 +54,7 @@ def linear_activation_forward(A_prev, W, b, activation):
         
     elif activation == "relu":
         A = relu(Z)
+    
     cache = ((A_prev, W, b), Z)
     
     return A, cache
@@ -71,7 +76,6 @@ def L_model_forward(X, parameters):
 def compute_cost(AL, Y):
     m = Y.shape[1]
     cost = (-1/m) * np.sum(Y * np.log(AL) + (1 - Y) * np.log(1 - AL), axis= 1, keepdims=True)
-
     cost = np.squeeze(cost)
     return cost
 
@@ -85,10 +89,8 @@ def relu_backward(dA, Z):
     dZ[Z <= 0] = 0
     return dZ
 
-def softmax_backward(linear_cache):
-    A = linear_cache
-    D = -np.outer(A, A) + np.diag(A.flatten())
-    return D
+def softmax_backward(dA, Z):
+    return dA * Z * (1 - Z)
 
 def linear_backward(dZ, cache):
     A_prev, W, b = cache
@@ -111,7 +113,7 @@ def linear_activation_backward(dA, cache, activation):
         dA_prev, dW, db = linear_backward(dZ, linear_cache)
         
     elif activation == "softmax":
-        dZ = softmax_backward(linear_cache)
+        dZ = softmax_backward(dA, Z)
         dA_prev, dW, db = linear_backward(dZ, linear_cache)
     
     return dA_prev, dW, db
@@ -147,21 +149,18 @@ def update_parameters(parameters, grads, learning_rate):
     return parameters
 
 def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):#lr was 0.009
-
-    np.random.seed(1)
     costs = []
 
     parameters = initialize_parameters(layers_dims)
 
     for i in range(0, num_iterations):
         AL, caches = L_model_forward(X, parameters)
-
+        
         cost = compute_cost(AL, Y)
 
         grads = L_model_backward(AL, Y, caches)
 
         parameters = update_parameters(parameters, grads, learning_rate)
-
         if print_cost and i % 100 == 0:
             print ("Cost after iteration %i: %f" %(i, cost))
         if print_cost and i % 100 == 0:
@@ -177,9 +176,10 @@ def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 30
 
 if __name__ == '__main__':
     df=pd.read_csv('data.csv', header=None)
-    X, Y = preprocessing_data(df)
-    layers_dims = [X.shape[0], 4, 3, 1]
-    L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, print_cost=True)
-    
-    
-        
+    X_train, X_test, Y_train, Y_test = preprocessing_data(df)
+    layers_dims = [X_train.shape[0], 15, 7, 1]
+    parameters = L_layer_model(X_train, Y_train, layers_dims, learning_rate = 0.0075, num_iterations = 30000, print_cost=False)
+    Y_hat, _ = L_model_forward(X_test, parameters)
+    Y_hat = np.where(Y_hat < 0.5, 0, 1)
+    accuracy = (Y_hat == Y_test).mean()
+    print(accuracy)
