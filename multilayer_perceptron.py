@@ -11,6 +11,11 @@ import seaborn as sns;
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
+import sys
+import pickle
+
+def writeCSV(df):
+    df.to_csv('parameters.csv')
 
 def preprocessing_data(df, Lactivation="softmax"):
     Y = np.array(df[1])
@@ -155,28 +160,35 @@ def update_parameters(parameters, grads, learning_rate):
 
     return parameters
 
-def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, activation="relu", Lactivation="softmax", Fcost="crossentropy", print_cost=False):#lr was 0.009
+def L_layer_model(X_train, Y_train, X_test, Y_test, layers_dims, learning_rate = 0.0075, num_iterations = 3000, activation="relu", Lactivation="softmax", Fcost="crossentropy", print_cost=False):#lr was 0.009
     costs = []
+    lst_val_loss = []
 
     parameters = initialize_parameters(layers_dims)
 
     for i in range(0, num_iterations):
-        AL, caches = L_model_forward(X, parameters, activation, Lactivation)
+        AL, caches = L_model_forward(X_train, parameters, activation, Lactivation)
+        AL_test, _ = L_model_forward(X_test, parameters, activation, Lactivation)
         
         if Fcost == "crossentropy":
-            cost = cross_entropy(AL,Y)
+            cost = cross_entropy(AL,Y_train)
+            val_loss = cross_entropy(AL_test,Y_test)
         else:
-            cost = compute_cost(AL, Y)
+            cost = compute_cost(AL, Y_train)
+            val_loss = compute_cost(AL_test,Y_test)
 
-        grads = L_model_backward(AL, Y, caches, activation, Lactivation)
+        grads = L_model_backward(AL, Y_train, caches, activation, Lactivation)
 
         parameters = update_parameters(parameters, grads, learning_rate)
         if print_cost  and i % 100 == 0:
-            print ("epoch %i/%i - loss: %f - val_loss: ?" %(i, num_iterations, cost))
+           print ("epoch %i/%i - loss: %f - val_loss: %f" %(i, num_iterations, cost, val_loss))
         if print_cost  and i % 100 == 0:
             costs.append(cost)
+            lst_val_loss.append(val_loss)
             
     plt.plot(np.squeeze(costs))
+    plt.plot(np.squeeze(lst_val_loss))
+    plt.legend(['loss', 'val_loss'])
     plt.ylabel('cost')
     plt.xlabel('iterations')
     plt.title("Learning rate =" + str(learning_rate))
@@ -185,21 +197,31 @@ def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 30
     return parameters
 
 def accuracy(Y, X, parameters, activation="relu", Lactivation="softmax"):
-    Yhat, _ = L_model_forward(X, parameters, activation, Lactivation)
+    Y_hat, _ = L_model_forward(X, parameters, activation, Lactivation)
     if Lactivation == "softmax":
-        Yhat = np.argmax(Yhat, axis=0)
+        Y_hat = np.argmax(Y_hat, axis=0)
         Y = np.argmax(Y, axis=1)
-        Yhat = Yhat.T
+        Y_hat = Y_hat.T
     if Lactivation == "sigmoid":
-        Yhat = np.where(Yhat < 0.5, 0, 1)
+        Y_hat = np.where(Y_hat < 0.5, 0, 1)
 
-    result = (Yhat == Y).mean()
+    result = (Y_hat == Y).mean()
+    print(result)
     return result
 
 if __name__ == '__main__':
-    df=pd.read_csv('data.csv', header=None)
-    X_train, X_test, Y_train, Y_test = preprocessing_data(df, Lactivation="sigmoid")
-    layers_dims = [X_train.shape[0], 40, 20, 10, 5, 1]
-    parameters = L_layer_model(X_train, Y_train, layers_dims, learning_rate = 0.0075, num_iterations = 30000, activation="relu", Lactivation="sigmoid", Fcost="cost", print_cost=True)
-    result = accuracy(Y_test, X_test, parameters, activation="relu", Lactivation="sigmoid")
-    print(result)
+    if len(sys.argv) != 2:
+        raise SyntaxError("Insufficient arguments.")
+    else:
+        df=pd.read_csv('data.csv', header=None)
+        X_train, X_test, Y_train, Y_test = preprocessing_data(df, Lactivation="sigmoid")
+    if str(sys.argv[1]) == "training":
+        layers_dims = [X_train.shape[0], 40, 20, 10, 5, 1]
+        parameters = L_layer_model(X_train, Y_train, X_test, Y_test, layers_dims, learning_rate = 0.007, num_iterations = 35900, activation="relu", Lactivation="sigmoid", Fcost="cost", print_cost=True)
+        with open('parameters.pkl', 'wb') as output:
+            pickle.dump(parameters, output)
+    elif str(sys.argv[1]) == "prediction":
+        with open("parameters.pkl", "rb") as fp:
+            parameters = pickle.load(fp)
+        accuracy(Y_test, X_test, parameters, activation="relu", Lactivation="sigmoid")
+        
