@@ -7,10 +7,10 @@ Created on Mon Apr 27 11:29:33 2020
 """
 import pandas as pd
 import numpy as np
-import seaborn as sns;
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
 import sys
 import pickle
 
@@ -132,7 +132,6 @@ def linear_activation_backward(dA, AL, Y, cache, activation):
 def L_model_backward(AL, Y, caches, activation, Lactivation):
     grads = {}
     L = len(caches)
-    m = AL.shape[1]
     dAL = None
     if Lactivation == "sigmoid":
         Y = Y.reshape(AL.shape)
@@ -204,24 +203,24 @@ def accuracy(Y, X, parameters, activation="relu", Lactivation="softmax"):
         Y_hat = Y_hat.T
     if Lactivation == "sigmoid":
         Y_hat = np.where(Y_hat < 0.5, 0, 1)
-
-    result = (Y_hat == Y).mean()
-    print(result)
-    return result
+    tn, fp, fn, tp = confusion_matrix(np.squeeze(Y), np.squeeze(Y_hat)).ravel()
+    result = ((Y_hat == Y).mean()) * 100 
+    return result, tn, fp, fn, tp
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3:
         raise SyntaxError("Insufficient arguments.")
     else:
-        df=pd.read_csv('data.csv', header=None)
-        X_train, X_test, Y_train, Y_test = preprocessing_data(df, Lactivation="sigmoid")
+        df=pd.read_csv(str(sys.argv[2]), header=None)
+        X_train, X_test, Y_train, Y_test = preprocessing_data(df, Lactivation="softmax")
     if str(sys.argv[1]) == "training":
-        layers_dims = [X_train.shape[0], 40, 20, 10, 5, 1]
-        parameters = L_layer_model(X_train, Y_train, X_test, Y_test, layers_dims, learning_rate = 0.007, num_iterations = 35900, activation="relu", Lactivation="sigmoid", Fcost="cost", print_cost=True)
+        layers_dims = [X_train.shape[0], 40, 20, 10, 5, 2]
+        parameters = L_layer_model(X_train, Y_train, X_test, Y_test, layers_dims, learning_rate = 0.007, num_iterations = 32700, activation="relu", Lactivation="softmax", Fcost="crossentropy", print_cost=True)
         with open('parameters.pkl', 'wb') as output:
             pickle.dump(parameters, output)
     elif str(sys.argv[1]) == "prediction":
         with open("parameters.pkl", "rb") as fp:
             parameters = pickle.load(fp)
-        accuracy(Y_test, X_test, parameters, activation="relu", Lactivation="sigmoid")
+        result, tn, fp, fn, tp = accuracy(Y_test, X_test, parameters, activation="relu", Lactivation="softmax")
+        print("Accuracy: %0.3f%% True negative: %i, False postive: %i, False Negative: %i, True Positive: %i" %(result, tn, fp, fn, tp))
         
