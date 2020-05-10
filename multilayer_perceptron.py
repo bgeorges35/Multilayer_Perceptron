@@ -17,7 +17,7 @@ import pickle
 def writeCSV(df):
     df.to_csv('parameters.csv')
 
-def preprocessing_data(df, Lactivation="softmax"):
+def preprocessing_data(df, Lactivation="softmax"): # Preprocessing des Datas
     Y = np.array(df[1])
     Y = np.where(Y == 'B', 0, 1)
     X = np.array(df.iloc[:, 2:])
@@ -36,16 +36,18 @@ def preprocessing_data(df, Lactivation="softmax"):
     return X_train, X_test, Y_train, Y_test
 
 
-def initialize_parameters(layer_dims):
+def initialize_parameters(layer_dims): # Initialzation des parametres
     np.random.seed(3)
     parameters = {}
     L = len(layer_dims)
     for l in range(1, L):
-        parameters['W' + str(l)] = np.random.randn(layer_dims[l], layer_dims[l - 1]) * np.sqrt(2 / layer_dims[l - 1])
+        parameters['W' + str(l)] = np.random.randn(layer_dims[l], layer_dims[l - 1]) * np.sqrt(2 / layer_dims[l - 1]) # Xavier Initialization
         parameters['b' + str(l)] = np.zeros((layer_dims[l], 1))
         
     return parameters
 
+
+# Fonctions d'activation
 def relu(Z):
     return np.maximum(Z, 0)
 
@@ -64,7 +66,10 @@ def relu_backward(dA, Z):
     dZ = np.array(dA, copy=True)
     dZ[Z <= 0] = 0
     return dZ
+##
 
+
+#FeedForword du NN    
 def linear_activation_forward(A_prev, W, b, activation):    
     Z = np.dot(W, A_prev) + b
     
@@ -83,7 +88,7 @@ def linear_activation_forward(A_prev, W, b, activation):
 def L_model_forward(X, parameters, activation, Lactivation):
     caches = []
     A = X
-    L = len(parameters) // 2 
+    L = len(parameters) // 2 # number of layers in the neural network
     for l in range(1, L):
         A_prev = A
         A, cache = linear_activation_forward(A_prev, parameters['W' + str(l)], parameters['b' + str(l)], activation)
@@ -92,7 +97,10 @@ def L_model_forward(X, parameters, activation, Lactivation):
     caches.append(cache)
             
     return AL, caches
+##
 
+    
+#Calcul du cost en crossentrpy pour la softmax et en mse pour la sigmoid
 def compute_cost(AL, Y):
     m = Y.shape[1]
     cost = (-1/m) * np.sum(Y * np.log(AL) + (1 - Y) * np.log(1 - AL), axis= 1, keepdims=True)
@@ -102,7 +110,9 @@ def compute_cost(AL, Y):
 def cross_entropy(AL,Y):
     cost = -np.mean(Y * np.log(AL.T + 1e-8))
     return cost
-
+##
+    
+## Calcul de la backpropagation
 def linear_backward(dZ, cache):
     A_prev, W, b = cache
     m = A_prev.shape[1]
@@ -148,7 +158,9 @@ def L_model_backward(AL, Y, caches, activation, Lactivation):
         grads["db" + str(l + 1)] = db_temp
 
     return grads
+##
 
+## Mise des poids et des biais
 def update_parameters(parameters, grads, learning_rate):
     
     L = len(parameters) // 2 # number of layers in the neural network
@@ -158,6 +170,7 @@ def update_parameters(parameters, grads, learning_rate):
         parameters["b" + str(l+1)] = parameters["b" + str(l+1)] - learning_rate * grads["db" + str(l + 1)]
 
     return parameters
+##
 
 def L_layer_model(X_train, Y_train, X_test, Y_test, layers_dims, learning_rate = 0.0075, num_iterations = 3000, activation="relu", Lactivation="softmax", Fcost="crossentropy", print_cost=False):#lr was 0.009
     costs = []
@@ -209,7 +222,11 @@ def accuracy(Y, X, parameters, activation="relu", Lactivation="softmax"):
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        raise SyntaxError("Insufficient arguments.")
+        print("usage: multilayer_perceptron.py Algorithm Dataset"  )
+        print("Algorithm: training or prediction")
+        print("Dataset: data.csv\n")
+        print("Insufficient arguments.")
+        sys.exit()
     else:
         df=pd.read_csv(str(sys.argv[2]), header=None)
         X_train, X_test, Y_train, Y_test = preprocessing_data(df, Lactivation="softmax")
@@ -219,8 +236,13 @@ if __name__ == '__main__':
         with open('parameters.pkl', 'wb') as output:
             pickle.dump(parameters, output)
     elif str(sys.argv[1]) == "prediction":
-        with open("parameters.pkl", "rb") as fp:
-            parameters = pickle.load(fp)
+        try:
+            fp = open("parameters.pkl", "rb")
+        except IOError: # parent of IOError, OSError *and* WindowsError where available
+            print('file parameters.pkl not found. Run training')
+            sys.exit()
+        parameters = pickle.load(fp)
         result, tn, fp, fn, tp = accuracy(Y_test, X_test, parameters, activation="relu", Lactivation="softmax")
         print("Accuracy: %0.3f%% True negative: %i, False postive: %i, False Negative: %i, True Positive: %i" %(result, tn, fp, fn, tp))
-        
+    else:
+        raise SyntaxError("Non valid arguments.")
