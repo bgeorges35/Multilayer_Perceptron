@@ -1,6 +1,17 @@
 # MULTILAYER-PERCEPTROM
 
-The goal of this project is to detect if tumor is benign or malignant
+## Description
+
+The goal of this project is to detect whether a tumor is benign or malignant
+
+
+### Neural Network
+
+In machine learning, the perceptron is an algorithm for supervised learning of binary classifiers. A binary classifier is a function which can decide whether or not an input, represented by a vector of numbers, belongs to some specific class.[1] It is a type of linear classifier, i.e. a classification algorithm that makes its predictions based on a linear predictor function combining a set of weights with the feature vector.
+
+![Image of Neural Network](https://www.researchgate.net/profile/Facundo_Bre/publication/321259051/figure/fig1/AS:614329250496529@1523478915726/Artificial-neural-network-architecture-ANN-i-h-1-h-2-h-n-o.png)
+
+
 
 ## Installation
 
