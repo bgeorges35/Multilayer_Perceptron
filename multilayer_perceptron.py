@@ -31,7 +31,7 @@ if __name__ == '__main__':
         learning_rate = 0.007
 
         layers_dims = [X_train.shape[0], 40, 20, 10, 5, 1] if args.Activation == "sigmoid" else [X_train.shape[0], 40, 20, 10, 5, 2]
-        parameters = L_layer_model(X_train, Y_train, X_test, Y_test, layers_dims, learning_rate, num_iterations, args.Activation, print_cost=False)
+        parameters = L_layer_model(X_train, Y_train, X_test, Y_test, layers_dims, learning_rate, num_iterations, args.Activation, print_cost=args.verbose)
         with open('parameters.pkl', 'wb') as output:
             pickle.dump(parameters, output)
 
