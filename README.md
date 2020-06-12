@@ -15,7 +15,7 @@ In machine learning, the perceptron is an algorithm for supervised learning of b
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install requirements.
 
 ```bash
 pip3 install -r requirements.txt
