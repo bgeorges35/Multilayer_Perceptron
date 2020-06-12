@@ -54,7 +54,6 @@ def linear_activation_forward(A_prev, W, b, activation):
 
     elif activation == "relu":
         A = relu(Z)
-
     cache = ((A_prev, W, b), Z)
 
     return A, cache
